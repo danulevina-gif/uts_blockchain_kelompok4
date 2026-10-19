@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 contract QurbanChain {
-    // --- State Variables ---
     mapping(address => bool) public isAdmin;
     
     enum Status { Terdaftar, DalamPerjalanan, SampaiTujuan, Disembelih }
@@ -19,13 +18,11 @@ contract QurbanChain {
     uint256 public totalHewan;
     mapping(uint256 => Hewan) public hewanQurban;
     
-    // --- Events ---
     event HewanDidaftarkan(uint256 indexed id, string jenis, address indexed pemilik);
     event StatusDiperbarui(uint256 indexed id, Status statusBaru);
     event KepemilikanBerpindah(uint256 indexed id, address pemilikLama, address pemilikBaru);
     event AdminBaruDitambahkan(address indexed adminBaru, address indexed ditambahkanOleh); 
     
-    // --- Modifiers ---
     modifier hanyaAdmin() {
         require(isAdmin[msg.sender], "Gagal: Anda bukan admin!");
         _;
@@ -49,17 +46,21 @@ contract QurbanChain {
     }
     
     function daftarkanHewan(string memory _jenis, uint256 _berat, string memory _lokasi) public hanyaAdmin {
-        totalHewan++;
-        
-        hewanQurban[totalHewan] = Hewan({
-            id: totalHewan,
-            jenis: _jenis,
-            berat: _berat,
-            lokasi: _lokasi,
-            pemilikSaatIni: msg.sender,
-            status: Status.Terdaftar
-        });
-        
+        require(_berat > 0, "Gagal: Berat hewan harus lebih besar dari 0 kg!");
+        require(bytes(_jenis).length > 0, "Gagal: Jenis hewan tidak boleh kosong!");
+        require(bytes(_lokasi).length > 0, "Gagal: Lokasi tidak boleh kosong!");
+
+    totalHewan++;
+    
+    hewanQurban[totalHewan] = Hewan({
+        id: totalHewan,
+        jenis: _jenis,
+        berat: _berat,
+        lokasi: _lokasi,
+        pemilikSaatIni: msg.sender,
+        status: Status.Terdaftar
+    });
+    
         emit HewanDidaftarkan(totalHewan, _jenis, msg.sender);
     }
     
@@ -80,7 +81,6 @@ contract QurbanChain {
         emit KepemilikanBerpindah(_id, pemilikLama, _pemilikBaru);
     }
 
-    // --- FUNGSI BARU UNTUK MENERJEMAHKAN STATUS KE TEKS ---
     function getDetailHewan(uint256 _id) public view returns (
         uint256 id,
         string memory jenis,
@@ -91,8 +91,6 @@ contract QurbanChain {
     ) {
         require(_id > 0 && _id <= totalHewan, "Hewan tidak ditemukan");
         Hewan memory h = hewanQurban[_id];
-        
-        // Menerjemahkan Enum angka menjadi Teks (String)
         string memory textStatus;
         if (h.status == Status.Terdaftar) textStatus = "Terdaftar";
         else if (h.status == Status.DalamPerjalanan) textStatus = "Dalam Perjalanan";
