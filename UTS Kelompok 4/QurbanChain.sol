@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
-
 contract QurbanChain {
+    // --- State Variables ---
     mapping(address => bool) public isAdmin;
     
     enum Status { Terdaftar, DalamPerjalanan, SampaiTujuan, Disembelih }
@@ -13,6 +13,8 @@ contract QurbanChain {
         string lokasi;
         address pemilikSaatIni;
         Status status;
+        uint256 umurBulan;
+        bool sehat;
     }
     
     uint256 public totalHewan;
@@ -29,7 +31,10 @@ contract QurbanChain {
     }
 
     modifier hanyaPemilikAtauAdmin(uint256 _id) {
-        require(msg.sender == hewanQurban[_id].pemilikSaatIni || isAdmin[msg.sender], "Gagal: Hanya pemilik atau admin yang berwenang!");
+        require(
+            msg.sender == hewanQurban[_id].pemilikSaatIni || isAdmin[msg.sender],
+            "Gagal: Hanya pemilik atau admin yang berwenang!"
+        );
         _;
     }
     
@@ -45,27 +50,53 @@ contract QurbanChain {
         emit AdminBaruDitambahkan(_adminBaru, msg.sender);
     }
     
-    function daftarkanHewan(string memory _jenis, uint256 _berat, string memory _lokasi) public hanyaAdmin {
-        require(_berat > 0, "Gagal: Berat hewan harus lebih besar dari 0 kg!");
-        require(bytes(_jenis).length > 0, "Gagal: Jenis hewan tidak boleh kosong!");
-        require(bytes(_lokasi).length > 0, "Gagal: Lokasi tidak boleh kosong!");
+    function daftarkanHewan(
+        string memory _jenis,
+        uint256 _berat,
+        string memory _lokasi,
+        uint256 _umurBulan,
+        bool _sehat
+    ) public hanyaAdmin {
+        require(_berat > 0, "Berat hewan harus lebih dari nol");
+        require(bytes(_jenis).length > 0, "Jenis hewan wajib diisi");
+        require(bytes(_lokasi).length > 0, "Lokasi wajib diisi");
 
-    totalHewan++;
-    
-    hewanQurban[totalHewan] = Hewan({
-        id: totalHewan,
-        jenis: _jenis,
-        berat: _berat,
-        lokasi: _lokasi,
-        pemilikSaatIni: msg.sender,
-        status: Status.Terdaftar
-    });
-    
+        bytes32 jenisHash = keccak256(bytes(_jenis));
+        if (jenisHash == keccak256(bytes("Kambing"))) {
+            require(_umurBulan >= 12, "Kambing qurban minimal berumur 1 tahun");
+        } else if (jenisHash == keccak256(bytes("Sapi"))) {
+            require(_umurBulan >= 24, "Sapi qurban minimal berumur 2 tahun");
+        } else {
+            revert("Jenis hewan harus Kambing atau Sapi");
+        }
+
+        require(_sehat, "Hewan qurban harus sehat dan tidak cacat");
+
+        totalHewan++;
+        
+        hewanQurban[totalHewan] = Hewan({
+            id: totalHewan,
+            jenis: _jenis,
+            berat: _berat,
+            lokasi: _lokasi,
+            pemilikSaatIni: msg.sender,
+            status: Status.Terdaftar,
+            umurBulan: _umurBulan,
+            sehat: _sehat
+        });
+        
         emit HewanDidaftarkan(totalHewan, _jenis, msg.sender);
     }
     
     function updateStatus(uint256 _id, Status _statusBaru) public hanyaPemilikAtauAdmin(_id) {
         require(_id > 0 && _id <= totalHewan, "Hewan tidak ditemukan");
+        
+        Status statusSekarang = hewanQurban[_id].status;
+        require(
+            uint8(_statusBaru) == uint8(statusSekarang) + 1,
+            "Error: Perubahan status harus berurutan, tidak boleh melompat atau mundur!"
+        );
+
         hewanQurban[_id].status = _statusBaru;
         
         emit StatusDiperbarui(_id, _statusBaru);
@@ -87,16 +118,28 @@ contract QurbanChain {
         uint256 berat,
         string memory lokasi,
         address pemilikSaatIni,
-        string memory statusSaatIni
+        string memory statusSaatIni,
+        uint256 umurBulan,
+        bool sehat
     ) {
         require(_id > 0 && _id <= totalHewan, "Hewan tidak ditemukan");
         Hewan memory h = hewanQurban[_id];
+        
         string memory textStatus;
         if (h.status == Status.Terdaftar) textStatus = "Terdaftar";
         else if (h.status == Status.DalamPerjalanan) textStatus = "Dalam Perjalanan";
         else if (h.status == Status.SampaiTujuan) textStatus = "Sampai Tujuan";
         else if (h.status == Status.Disembelih) textStatus = "Telah Disembelih";
 
-        return (h.id, h.jenis, h.berat, h.lokasi, h.pemilikSaatIni, textStatus);
+        return (
+            h.id,
+            h.jenis,
+            h.berat,
+            h.lokasi,
+            h.pemilikSaatIni,
+            textStatus,
+            h.umurBulan,
+            h.sehat
+        );
     }
 }
